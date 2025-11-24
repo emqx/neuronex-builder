@@ -1,0 +1,57 @@
+# Copyright 2021 EMQ Technologies Co., Ltd.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+FROM dokken/centos-stream-8:latest
+
+ARG GO_VERSION
+ARG DEBIAN_FRONTEND="noninteractive"
+
+# Update repository URLs to use vault.centos.org
+RUN sed -i 's|mirrorlist=http://mirrorlist.centos.org|#mirrorlist=http://mirrorlist.centos.org|g' /etc/yum.repos.d/CentOS-*
+RUN sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+
+
+RUN dnf update -y \
+    && dnf install -y git epel-release \
+    && dnf install -y jq gcc make glibc-devel kernel-headers rpm-build \
+    && dnf install -y aarch64-linux-gnu-gcc
+
+RUN case $(arch) in \
+        x86_64) \
+            case $(getconf LONG_BIT) in \
+                64) \
+                    ARCH=amd64; \
+                    dnf install -y epel-release; \
+                    dnf install -y upx \
+                ;; \
+                32) ARCH=386;; \
+            esac \
+        ;; \
+        aarch64) \
+            ARCH=arm64 \
+        ;; \
+        arm) \
+            ARCH=armv6l \
+        ;; \
+        ppc64le) \
+            ARCH=ppc64le\
+        ;; \
+        s390x) \
+            ARCH=s390x \
+        ;; \
+    esac \
+    && wget --no-verbose https://golang.org/dl/go$GO_VERSION.linux-$ARCH.tar.gz \
+    && tar -C /usr/local -xzf go$GO_VERSION.linux-$ARCH.tar.gz
+
+ENV PATH=$PATH:/usr/local/go/bin

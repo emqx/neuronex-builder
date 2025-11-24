@@ -1,0 +1,42 @@
+name: Push images to ACR
+description: Push images to ACR (Aliyun Container Registry)
+
+inputs:
+  acr-login-server:
+    description: "The private registry server"
+    required: true
+  acr-username:
+    description: "The username for the private registry"
+    required: true
+  acr-password:
+    description: "The password for the private registry"
+    required: true
+  tags:
+    description: "Tags in multi-line strings"
+    required: true
+  skip-login:
+    description: "Whether to skip login"
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    - uses: docker/login-action@v3
+      if: ${{ inputs.skip-login == 'false' }}
+      with:
+        registry: ${{ inputs.acr-login-server }}
+        username: ${{ inputs.acr-username }}
+        password: ${{ inputs.acr-password }}
+        ecr: false
+    - name: Push docker image to registry
+      shell: bash
+      # Sometimes the docker push to alibaba cloud will timeout, so we need to retry.
+      run: |
+        while read -r tag; do
+          for ((i=0; i<=5; i++)); do
+            if docker push ${tag}; then
+              break
+            fi
+          done
+        done <<< "${{ inputs.tags }}"

@@ -1,0 +1,391 @@
+name: Build packages
+
+concurrency:
+  group: build-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "*"
+
+
+jobs:
+  build-docker-images:
+    runs-on: 
+      - ubuntu-22.04
+      - ubuntu-22.04-arm
+    permissions: write-all
+    if: github.ref_type == 'tag'
+
+    strategy:
+        fail-fast: false
+        matrix:
+          suffix:
+            - ""
+            - "-slim"
+
+    steps:
+    - name: Generate GitHub App token
+      id: app-token
+      uses: actions/create-github-app-token@v1
+      with:
+        app-id: ${{ vars.AUTH_APP_ID }}
+        private-key: ${{ secrets.AUTH_APP_PRIVATE_KEY }}
+        owner: ${{ github.repository_owner }}
+        repositories: |
+          ai-chart
+          emqx-ai
+          ekuiper
+          neuron
+          neuronex-dashboard
+          neuronex-ai
+          gotools
+          neuron-modules
+          neuronex-go
+    - uses: actions/checkout@v4
+      with:
+        repository: emqx/neuronex-go
+        fetch-depth: 0
+        token: ${{ steps.app-token.outputs.token }}
+        path: .
+        ref: ${{ github.ref }}
+    - name: Check latest image
+      id: latest
+      run: |
+        echo "latest=false" >> $GITHUB_OUTPUT
+        if ${{ matrix.suffix == '' }}; then
+          if echo "${{ github.ref_name }}" |egrep -q "^[0-9].[0-9].[0-9]$"; then
+            echo "latest=true" >> $GITHUB_OUTPUT
+          fi
+        fi
+    - name: Cusmoter image tag
+      id: customer
+      run: |
+        tag="${GITHUB_REF##*/}"
+        echo "tag=$tag" >> $GITHUB_OUTPUT
+    - uses: docker/metadata-action@v4
+      id: meta
+      with:
+        images: docker.io/emqx/neuronex
+        flavor: |
+          latest=${{ steps.latest.outputs.latest }}
+          suffix=${{ matrix.suffix }}
+        tags: |
+          type=raw,enable=${{ contains(github.ref_name, 'customer') }},value=${{ steps.customer.outputs.tag }}
+          type=ref,event=branch,enable=${{ !contains(github.ref_name, 'customer') }}
+          type=ref,event=pr,enable=${{ !contains(github.ref_name, 'customer') }}
+          type=ref,event=tag,enable=${{ !contains(github.ref_name, 'customer') }}
+          type=semver,pattern={{version}},enable=${{ !contains(github.ref_name, 'customer') }}
+          type=semver,pattern={{major}}.{{minor}},enable=${{ !contains(github.ref_name, 'customer') }}
+    - uses: docker/login-action@v2
+      if: github.ref_type == 'tag'
+      with:
+        username: ${{ secrets.DOCKER_HUB_USER }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+    - name: Get platform
+      id: platform
+      run: |
+        if [[ "${{ runner.name }}" == "ubuntu-22.04-arm" ]]; then
+          platform="linux/arm64"
+        else
+          platform="linux/amd64"
+        fi
+        echo "platform=$platform" >> $GITHUB_OUTPUT
+    - name: Build image
+      uses: docker/build-push-action@v3
+      with:
+        push: ${{ github.ref_type == 'tag' }}
+        load: ${{ contains(github.ref_name, 'customer') }}
+        platforms: ${{ steps.platform.outputs.platform }}
+        build-args: |
+          GIT_TOKEN=${{ steps.app-token.outputs.token }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        file: deploy/docker/Dockerfile${{ matrix.suffix }}
+        context: . 
+        outputs: type=image,dest=/tmp/neuronex${{ matrix.suffix }}.tar
+    - name: Manual Trivy Setup
+      uses: aquasecurity/setup-trivy@v0.2.0
+      with:
+        cache: true
+        version: v0.57.1
+    - name: Run Trivy scanner of neuronex on pr
+      if: github.event_name == 'pull_request'
+      run: |
+        trivy image --severity CRITICAL,HIGH --input /tmp/neuronex${{ matrix.suffix }}.tar --output ./trivy-report.txt --ignore-unfixed
+        sed -i '1s/^/```md\n\n/' ./trivy-report.txt
+        echo '```' >> ./trivy-report.txt
+    - name: Comment on PR about trivy
+      # 只有当 pr 的时候才触发评论
+      if: github.event_name == 'pull_request'
+      uses: peter-evans/create-or-update-comment@v4
+      with:
+        issue-number: ${{ github.event.pull_request.number }}
+        body-path: 'trivy-report.txt'
+    - name: Save image to file
+      if: contains(github.ref_name, 'customer')
+      run: |
+          docker save -o neuronex${{ matrix.suffix }}.tar ${{ steps.meta.outputs.tags }}
+    - uses: actions/upload-artifact@v4
+      if: contains(github.ref_name, 'customer')
+      with:
+        name: package-image
+        path: neuronex${{ matrix.suffix }}.tar
+    - name: Retag images
+      id: retag-images
+      if: github.ref_type == 'tag'
+      run: |
+        # 初始化空字符串存储所有新镜像
+        new_image=""
+        
+        # 处理多行格式的 tags，使用 here-string 避免子 shell 问题
+        while read -r tag; do
+          # Skip if tag is empty
+          [ -z "$tag" ] && continue
+          
+          image="${tag##*/}"
+          new_tag=registry-intl.cn-shanghai.aliyuncs.com/bchub/${image}
+          docker pull "$tag"
+          docker tag "$tag" "${new_tag}"
+          
+          # 累积新镜像到多行字符串
+          if [ -z "$new_image" ]; then
+            new_image="$new_tag"
+          else
+            new_image="$new_image"$'\n'"$new_tag"
+          fi
+        done <<< "${{ steps.meta.outputs.tags }}"
+        
+        # 将多行字符串结果写入 GITHUB_OUTPUT
+        echo "new_image=$new_image" >> $GITHUB_OUTPUT
+    - uses: ./.github/actions/push-images-to-acr
+      if: github.ref_type == 'tag'
+      with:
+        acr-login-server: registry-intl.cn-shanghai.aliyuncs.com
+        acr-username: ${{ secrets.REGISTRY_USERNAME }}
+        acr-password: ${{ secrets.REGISTRY_PASSWORD }}
+        tags: ${{ steps.retag-images.outputs.new_image }}
+        skip-login: 'false'
+  
+  build:
+    runs-on: 
+      - ubuntu-22.04
+      - ubuntu-22.04-arm
+
+    permissions:
+      contents: read
+      packages: read
+
+    strategy:
+      matrix:
+        golang:
+          - 1.23.3
+        os:
+          - ubuntu
+          - centos
+        # exclude:
+        #   - arch: linux/arm/v7
+        #     os: centos 
+
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.AUTH_APP_ID }}
+          private-key: ${{ secrets.AUTH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            ai-chart
+            emqx-ai
+            ekuiper
+            neuron
+            neuronex-dashboard
+            neuronex-ai
+            gotools
+            neuron-modules
+            neuronex-go
+      - uses: actions/checkout@v4
+        with:
+          repository: emqx/neuronex-go
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+          path: .
+          ref: ${{ github.ref }}
+      - uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: build
+        if: matrix.os == 'centos'
+        env:
+          GIT_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          if [[ "${{ runner.name }}" == "ubuntu-22.04-arm" ]]; then
+            platform="linux/arm64"
+          else
+            platform="linux/amd64"
+          fi
+
+          docker run -i --rm \
+          -v $(pwd):/neuronex \
+          --workdir /neuronex \
+          -e GIT_TOKEN=${{ steps.app-token.outputs.token }} \
+          -e DEBUG=1 \
+          --platform ${platform} \
+          ghcr.io/emqx/neuronex-go/neuronex-builder:${{ matrix.golang }}-${{ matrix.os }} \
+          bash -euc "git config --global --add safe.directory /neuronex && git config --global url."https://oauth2:${GIT_TOKEN}@github.com/emqx".insteadOf "https://github.com/emqx" && .github/scripts/install_dep_rpm.sh  && make pkg"
+      - name: build
+        if: matrix.os == 'ubuntu'
+        env:
+          GIT_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          if [[ "${{ runner.name }}" == "ubuntu-22.04-arm" ]]; then
+            platform="linux/arm64"
+          else
+            platform="linux/amd64"
+          fi
+
+          docker run -i --rm \
+          -v $(pwd):/neuronex \
+          --workdir /neuronex \
+          -e GIT_TOKEN=${{ steps.app-token.outputs.token }} \
+          -e DEBUG=1 \
+          --platform ${platform} \
+          ghcr.io/emqx/neuronex-go/neuronex-builder:${{ matrix.golang }}-${{ matrix.os }} \
+          bash -euc "git config --global --add safe.directory /neuronex && git config --global url."https://oauth2:${GIT_TOKEN}@github.com/emqx".insteadOf "https://github.com/emqx" && make tar_pkg &&  make pkg && .github/scripts/install_test.sh"
+      - name: generate-sha256
+        run: |
+          cd _packages
+          sudo chown -R $(whoami) .
+          while IFS= read -r line
+          do
+            shasum -a 256 "$line" | head -c 64 > "$line.sha256"
+          done < <(find . -maxdepth 1 -type f)
+
+      - uses: actions/upload-artifact@v4
+        # if: github.ref_type == 'tag'
+        with:
+          name: packages-${{ strategy.job-index }}
+          path: _packages/
+
+
+  release:
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag'
+
+    permissions: write-all
+
+    needs:
+      - build
+
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.AUTH_APP_ID }}
+          private-key: ${{ secrets.AUTH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            ai-chart
+            emqx-ai
+            ekuiper
+            neuron
+            neuronex-dashboard
+            neuronex-ai
+            gotools
+            neuron-modules
+            neuronex-go
+      - uses: actions/checkout@v4
+        with:
+          repository: emqx/neuronex-go
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+          path: .
+          ref: ${{ github.ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: packages-*
+          merge-multiple: true
+          path: _packages
+      - id: prerelease
+        run: |
+          if echo "${{ github.ref_name }}" |egrep -q "^[0-9]+.[0-9]+.[0-9]+$"; then
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          fi
+      - name: Check release note
+        env:
+          RELEASE_NOTE: release_notes/${{ github.ref_name }}.md
+        run: |
+          if [[ ! -f $RELEASE_NOTE ]];  then
+             echo "NeuronEX ${{ github.ref_name }} has been released." > $RELEASE_NOTE
+          fi
+      - uses: softprops/action-gh-release@v1
+        if: github.ref_type == 'tag'
+        with:
+          ## When you use the repository's GITHUB_TOKEN to perform tasks,
+          ## events triggered by the GITHUB_TOKEN, with the exception of workflow_dispatch and repository_dispatch,
+          ## will not create a new workflow run.
+          ## This prevents you from accidentally creating recursive workflow runs.
+          ## More info: https://docs.github.com/en/actions/using-workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow
+          token: ${{ github.token }}
+          prerelease: ${{ steps.prerelease.outputs.prerelease }}
+          generate_release_notes: ${{ steps.prerelease.outputs.prerelease }}
+          name: NeuronEX ${{ github.ref_name }} Released
+          body_path: release_notes/${{ github.ref_name }}.md
+          files: |
+            _packages/neuronex-*
+      - uses: aws-actions/configure-aws-credentials@v2
+        if: github.ref_type == 'tag'
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      - name: upload to aws s3
+        if: github.ref_type == 'tag'
+        run: |
+          aws s3 cp --recursive _packages/ s3://${{ secrets.AWS_S3_BUCKET }}/neuronex/${{ github.ref_name }}
+          aws cloudfront create-invalidation --distribution-id ${{ secrets.AWS_CLOUDFRONT_ID }} --paths "/neuronex/${{ github.ref_name }}/*"
+      - name: update website
+        if: github.ref_type == 'tag'
+        run: |
+          set -eux
+          curl -w %{http_code} \
+               --insecure \
+               -H "Content-Type: application/json" \
+               -H "token: ${{ secrets.EMQX_IO_TOKEN }}" \
+               -X POST \
+               -d "{\"repo\":\"emqx/neuronex-go\", \"tag\": \"${{ github.ref_name }}\" }" \
+               ${{ secrets.EMQX_IO_RELEASE_API }}
+      # - uses: geekyeggo/delete-artifact@v2
+      #   with:
+      #     name: packages
+      - uses: peter-evans/dockerhub-description@v3
+        if: github.ref_type == 'tag'
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          repository: "emqx/neuronex"
+          readme-filepath: ./deploy/docker/README.md
+          short-description: ""
+
+  trigger_regression_testing:
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() && contains(join(needs.*.result, ','), 'success') }}
+    needs:
+      - build
+    env:
+      GH_TOKEN: ${{ secrets.PAT_EMQX_QA_RW }}
+    steps:
+      - name: Trigger NeuronEX Regression Testing Workflow
+        shell: bash
+        run: |
+          gh --repo emqx/emqx-qa workflow run regression_testing_neuronex.yaml \
+            -f froms="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
