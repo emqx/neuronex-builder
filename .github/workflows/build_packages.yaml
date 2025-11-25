@@ -102,12 +102,13 @@ jobs:
         push: ${{ github.ref_type == 'tag' }}
         build-args: |
           GIT_TOKEN=${{ steps.app-token.outputs.token }}
-        tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         file: deploy/docker/Dockerfile${{ matrix.suffix }}
         context: .
         platforms: ${{ matrix.platform }}
         outputs: type=image,name=target,push-by-digest=true,name-canonical=true,push=true
+        # Disable attestation to avoid conflicts with digest-based pushing
+        provenance: false
     - name: Export digest
       run: |
         mkdir -p /tmp/digests
@@ -377,17 +378,11 @@ jobs:
       - name: Download digests
         uses: actions/download-artifact@v4
         with:
-          pattern: digests-*
+          pattern: digests-*${{ matrix.suffix }}
           path: /tmp/digests
+          merge-multiple: true
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: docker.io/emqx/neuronex
-          tags: |
-            type=raw,value=${{ github.ref_name }}${{ matrix.suffix }}
       - name: Login to DockerHub
         uses: docker/login-action@v2
         with:
@@ -395,11 +390,16 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
       - name: Create and push manifest
         run: |
-          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            docker.io/emqx/neuronex@$(cat /tmp/digests/amd64${{ matrix.suffix }}.txt) \
-            docker.io/emqx/neuronex@$(cat /tmp/digests/arm64${{ matrix.suffix }}.txt)
-        env:
-          DOCKER_METADATA_OUTPUT_JSON: ${{ steps.meta.outputs.json }}
+          ls -la /tmp/digests/
+          # Read the digest files
+          amd64_digest=$(cat /tmp/digests/amd64${{ matrix.suffix }}.txt)
+          arm64_digest=$(cat /tmp/digests/arm64${{ matrix.suffix }}.txt)
+          
+          # Create and push manifest
+          docker buildx imagetools create \
+            --tag docker.io/emqx/neuronex:${{ github.ref_name }}${{ matrix.suffix }} \
+            docker.io/emqx/neuronex@${amd64_digest} \
+            docker.io/emqx/neuronex@${arm64_digest}
       - name: Inspect image
         run: |
           docker buildx imagetools inspect docker.io/emqx/neuronex:${{ github.ref_name }}${{ matrix.suffix }}
