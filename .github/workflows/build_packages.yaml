@@ -301,20 +301,6 @@ jobs:
           pattern: packages-*
           merge-multiple: true
           path: _packages
-      - id: prerelease
-        run: |
-          if echo "${{ github.ref_name }}" |egrep -q "^[0-9]+.[0-9]+.[0-9]+$"; then
-            echo "prerelease=false" >> $GITHUB_OUTPUT
-          else
-            echo "prerelease=true" >> $GITHUB_OUTPUT
-          fi
-      - name: Check release note
-        env:
-          RELEASE_NOTE: release_notes/${{ github.ref_name }}.md
-        run: |
-          if [[ ! -f $RELEASE_NOTE ]];  then
-             echo "NeuronEX ${{ github.ref_name }} has been released." > $RELEASE_NOTE
-          fi
       - uses: softprops/action-gh-release@v1
         if: github.ref_type == 'tag'
         with:
@@ -323,57 +309,56 @@ jobs:
           ## will not create a new workflow run.
           ## This prevents you from accidentally creating recursive workflow runs.
           ## More info: https://docs.github.com/en/actions/using-workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow
-          token: ${{ github.token }}
-          prerelease: ${{ steps.prerelease.outputs.prerelease }}
-          generate_release_notes: ${{ steps.prerelease.outputs.prerelease }}
+          token: ${{ steps.app-token.outputs.token }}
+          prerelease: true
+          generate_release_notes: true
           name: NeuronEX ${{ github.ref_name }} Released
-          body_path: release_notes/${{ github.ref_name }}.md
           files: |
             _packages/neuronex-*
-      - uses: aws-actions/configure-aws-credentials@v2
-        if: github.ref_type == 'tag'
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-      - name: upload to aws s3
-        if: github.ref_type == 'tag'
-        run: |
-          aws s3 cp --recursive _packages/ s3://${{ secrets.AWS_S3_BUCKET }}/neuronex/${{ github.ref_name }}
-          aws cloudfront create-invalidation --distribution-id ${{ secrets.AWS_CLOUDFRONT_ID }} --paths "/neuronex/${{ github.ref_name }}/*"
-      - name: update website
-        if: github.ref_type == 'tag'
-        run: |
-          set -eux
-          curl -w %{http_code} \
-               --insecure \
-               -H "Content-Type: application/json" \
-               -H "token: ${{ secrets.EMQX_IO_TOKEN }}" \
-               -X POST \
-               -d "{\"repo\":\"emqx/neuronex-go\", \"tag\": \"${{ github.ref_name }}\" }" \
-               ${{ secrets.EMQX_IO_RELEASE_API }}
+      # - uses: aws-actions/configure-aws-credentials@v2
+      #   if: github.ref_type == 'tag'
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      # - name: upload to aws s3
+      #   if: github.ref_type == 'tag'
+      #   run: |
+      #     aws s3 cp --recursive _packages/ s3://${{ secrets.AWS_S3_BUCKET }}/neuronex/${{ github.ref_name }}
+      #     aws cloudfront create-invalidation --distribution-id ${{ secrets.AWS_CLOUDFRONT_ID }} --paths "/neuronex/${{ github.ref_name }}/*"
+      # - name: update website
+      #   if: github.ref_type == 'tag'
+      #   run: |
+      #     set -eux
+      #     curl -w %{http_code} \
+      #          --insecure \
+      #          -H "Content-Type: application/json" \
+      #          -H "token: ${{ secrets.EMQX_IO_TOKEN }}" \
+      #          -X POST \
+      #          -d "{\"repo\":\"emqx/neuronex-go\", \"tag\": \"${{ github.ref_name }}\" }" \
+      #          ${{ secrets.EMQX_IO_RELEASE_API }}
       # - uses: geekyeggo/delete-artifact@v2
       #   with:
       #     name: packages
-      - uses: peter-evans/dockerhub-description@v3
-        if: github.ref_type == 'tag'
-        with:
-          username: ${{ secrets.DOCKER_HUB_USER }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
-          repository: "emqx/neuronex"
-          readme-filepath: ./deploy/docker/README.md
-          short-description: ""
+      # - uses: peter-evans/dockerhub-description@v3
+      #   if: github.ref_type == 'tag'
+      #   with:
+      #     username: ${{ secrets.DOCKER_HUB_USER }}
+      #     password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      #     repository: "emqx/neuronex"
+      #     readme-filepath: ./deploy/docker/README.md
+      #     short-description: ""
 
-  trigger_regression_testing:
-    runs-on: ubuntu-latest
-    if: ${{ !cancelled() && contains(join(needs.*.result, ','), 'success') }}
-    needs:
-      - build
-    env:
-      GH_TOKEN: ${{ secrets.PAT_EMQX_QA_RW }}
-    steps:
-      - name: Trigger NeuronEX Regression Testing Workflow
-        shell: bash
-        run: |
-          gh --repo emqx/emqx-qa workflow run regression_testing_neuronex.yaml \
-            -f froms="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+  # trigger_regression_testing:
+  #   runs-on: ubuntu-latest
+  #   if: ${{ !cancelled() && contains(join(needs.*.result, ','), 'success') }}
+  #   needs:
+  #     - build
+  #   env:
+  #     GH_TOKEN: ${{ secrets.PAT_EMQX_QA_RW }}
+  #   steps:
+  #     - name: Trigger NeuronEX Regression Testing Workflow
+  #       shell: bash
+  #       run: |
+  #         gh --repo emqx/emqx-qa workflow run regression_testing_neuronex.yaml \
+  #           -f froms="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
