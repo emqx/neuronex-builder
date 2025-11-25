@@ -12,10 +12,27 @@ on:
 
 
 jobs:
+  check-validate-tag-format:
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag'
+    steps:
+      - name: Check tag format
+        run: |
+          TAG="${{ github.ref_name }}"
+          # Regular expression for X.Y.Z or X.Y.Z-[alpha|beta|rc].n
+          if [[ $TAG =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)(\.[0-9]+)?)?$ ]]; then
+            echo "Tag format is valid: $TAG"
+            exit 0
+          else
+            echo "Tag format is invalid: $TAG"
+            exit 1
+          fi
+
   build-docker-images:
     runs-on: ${{ matrix.arch }}
     permissions: write-all
     if: github.ref_type == 'tag'
+    needs: check-validate-tag-format
 
     strategy:
         fail-fast: false
@@ -190,6 +207,7 @@ jobs:
     permissions:
       contents: read
       packages: read
+    needs: check-validate-tag-format
 
     strategy:
       matrix:
@@ -284,6 +302,7 @@ jobs:
 
     needs:
       - build
+      - check-validate-tag-format
 
     steps:
       - name: Generate GitHub App token
@@ -370,6 +389,7 @@ jobs:
     if: github.ref_type == 'tag'
     needs:
       - build-docker-images
+      - check-validate-tag-format
     strategy:
       matrix:
         suffix:
