@@ -96,7 +96,7 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
         file: deploy/docker/Dockerfile${{ matrix.suffix }}
         context: . 
-        outputs: type=image,dest=/tmp/neuronex${{ matrix.arch }}-${{ matrix.suffix }}.tar
+        outputs: type=image,dest=/tmp/neuronex-${{ matrix.arch }}${{ matrix.suffix }}.tar
     - name: Manual Trivy Setup
       uses: aquasecurity/setup-trivy@v0.2.0
       with:
@@ -105,7 +105,7 @@ jobs:
     - name: Run Trivy scanner of neuronex on pr
       if: github.event_name == 'pull_request'
       run: |
-        trivy image --severity CRITICAL,HIGH --input /tmp/neuronex${{ matrix.arch }}-${{ matrix.suffix }}.tar --output ./trivy-report.txt --ignore-unfixed
+        trivy image --severity CRITICAL,HIGH --input /tmp/neuronex-${{ matrix.arch }}${{ matrix.suffix }}.tar --output ./trivy-report.txt --ignore-unfixed
         sed -i '1s/^/```md\n\n/' ./trivy-report.txt
         echo '```' >> ./trivy-report.txt
     - name: Comment on PR about trivy
@@ -118,12 +118,12 @@ jobs:
     - name: Save image to file
       if: contains(github.ref_name, 'customer')
       run: |
-          docker save -o neuronex${{ matrix.arch }}-${{ matrix.suffix }}.tar ${{ steps.meta.outputs.tags }}
+          docker save -o neuronex-${{ matrix.arch }}${{ matrix.suffix }}.tar ${{ steps.meta.outputs.tags }}
     - uses: actions/upload-artifact@v4
       if: contains(github.ref_name, 'customer')
       with:
         name: package-image
-        path: neuronex${{ matrix.arch }}-${{ matrix.suffix }}.tar
+        path: neuronex-${{ matrix.arch }}${{ matrix.suffix }}.tar
     # - name: Retag images
     #   id: retag-images
     #   if: github.ref_type == 'tag'
