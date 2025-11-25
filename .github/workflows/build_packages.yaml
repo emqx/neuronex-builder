@@ -100,15 +100,18 @@ jobs:
       uses: docker/build-push-action@v3
       with:
         push: ${{ github.ref_type == 'tag' }}
+        tags: ${{ steps.meta.outputs.tags }}
         build-args: |
           GIT_TOKEN=${{ steps.app-token.outputs.token }}
         labels: ${{ steps.meta.outputs.labels }}
         file: deploy/docker/Dockerfile${{ matrix.suffix }}
         context: .
         platforms: ${{ matrix.platform }}
-        outputs: type=image,name=target,push-by-digest=true,name-canonical=true,push=true
+        outputs: type=image,name=target,push-by-digest=true,name-canonical=true
         # Disable attestation to avoid conflicts with digest-based pushing
         provenance: false
+        # Load the image locally with tags but do not push tagged versions
+        load: true
     - name: Export digest
       run: |
         mkdir -p /tmp/digests
