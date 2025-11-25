@@ -26,6 +26,14 @@ jobs:
           suffix:
             - ""
             - "-slim"
+          # Add platform information
+          include:
+            - arch: ubuntu-22.04
+              platform: linux/amd64
+              suffix_platform: amd64
+            - arch: ubuntu-22.04-arm
+              platform: linux/arm64
+              suffix_platform: arm64
 
     steps:
     - name: Generate GitHub App token
@@ -85,18 +93,32 @@ jobs:
       with:
         username: ${{ secrets.DOCKER_HUB_USER }}
         password: ${{ secrets.DOCKER_HUB_TOKEN }}
-    - name: Build image
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    - name: Build and push by digest
+      id: build
       uses: docker/build-push-action@v3
       with:
         push: ${{ github.ref_type == 'tag' }}
-        load: ${{ contains(github.ref_name, 'customer') }}
         build-args: |
           GIT_TOKEN=${{ steps.app-token.outputs.token }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         file: deploy/docker/Dockerfile${{ matrix.suffix }}
-        context: . 
-        outputs: type=image,dest=/tmp/neuronex-${{ matrix.arch }}${{ matrix.suffix }}.tar
+        context: .
+        platforms: ${{ matrix.platform }}
+        outputs: type=image,name=target,push-by-digest=true,name-canonical=true,push=true
+    - name: Export digest
+      run: |
+        mkdir -p /tmp/digests
+        echo ${{ steps.build.outputs.digest }} > /tmp/digests/${{ matrix.suffix_platform }}${{ matrix.suffix }}.txt
+    - name: Upload digest
+      uses: actions/upload-artifact@v4
+      with:
+        name: digests-${{ matrix.suffix_platform }}${{ matrix.suffix }}
+        path: /tmp/digests/${{ matrix.suffix_platform }}${{ matrix.suffix }}.txt
+        if-no-files-found: error
+        retention-days: 1
     - name: Manual Trivy Setup
       uses: aquasecurity/setup-trivy@v0.2.0
       with:
@@ -339,6 +361,48 @@ jobs:
       #     repository: "emqx/neuronex"
       #     readme-filepath: ./deploy/docker/README.md
       #     short-description: ""
+
+  # Create multi-arch manifest
+  create-manifest:
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag'
+    needs:
+      - build-docker-images
+    strategy:
+      matrix:
+        suffix:
+          - ""
+          - "-slim"
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: digests-*
+          path: /tmp/digests
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: docker.io/emqx/neuronex
+          tags: |
+            type=raw,value=${{ github.ref_name }}${{ matrix.suffix }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      - name: Create and push manifest
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            docker.io/emqx/neuronex@$(cat /tmp/digests/amd64${{ matrix.suffix }}.txt) \
+            docker.io/emqx/neuronex@$(cat /tmp/digests/arm64${{ matrix.suffix }}.txt)
+        env:
+          DOCKER_METADATA_OUTPUT_JSON: ${{ steps.meta.outputs.json }}
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect docker.io/emqx/neuronex:${{ github.ref_name }}${{ matrix.suffix }}
 
   # trigger_regression_testing:
   #   runs-on: ubuntu-latest
