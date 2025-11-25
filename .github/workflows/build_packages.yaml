@@ -85,28 +85,18 @@ jobs:
       with:
         username: ${{ secrets.DOCKER_HUB_USER }}
         password: ${{ secrets.DOCKER_HUB_TOKEN }}
-    - name: Get platform
-      id: platform
-      run: |
-        if [[ "${{ runner.name }}" == "ubuntu-22.04-arm" ]]; then
-          platform="linux/arm64"
-        else
-          platform="linux/amd64"
-        fi
-        echo "platform=$platform" >> $GITHUB_OUTPUT
     - name: Build image
       uses: docker/build-push-action@v3
       with:
         push: ${{ github.ref_type == 'tag' }}
         load: ${{ contains(github.ref_name, 'customer') }}
-        platforms: ${{ steps.platform.outputs.platform }}
         build-args: |
           GIT_TOKEN=${{ steps.app-token.outputs.token }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         file: deploy/docker/Dockerfile${{ matrix.suffix }}
         context: . 
-        outputs: type=image,dest=/tmp/neuronex${{ matrix.suffix }}.tar
+        outputs: type=image,dest=/tmp/neuronex${{ matrix.arch }}-${{ matrix.suffix }}.tar
     - name: Manual Trivy Setup
       uses: aquasecurity/setup-trivy@v0.2.0
       with:
@@ -115,7 +105,7 @@ jobs:
     - name: Run Trivy scanner of neuronex on pr
       if: github.event_name == 'pull_request'
       run: |
-        trivy image --severity CRITICAL,HIGH --input /tmp/neuronex${{ matrix.suffix }}.tar --output ./trivy-report.txt --ignore-unfixed
+        trivy image --severity CRITICAL,HIGH --input /tmp/neuronex${{ matrix.arch }}-${{ matrix.suffix }}.tar --output ./trivy-report.txt --ignore-unfixed
         sed -i '1s/^/```md\n\n/' ./trivy-report.txt
         echo '```' >> ./trivy-report.txt
     - name: Comment on PR about trivy
@@ -128,47 +118,47 @@ jobs:
     - name: Save image to file
       if: contains(github.ref_name, 'customer')
       run: |
-          docker save -o neuronex${{ matrix.suffix }}.tar ${{ steps.meta.outputs.tags }}
+          docker save -o neuronex${{ matrix.arch }}-${{ matrix.suffix }}.tar ${{ steps.meta.outputs.tags }}
     - uses: actions/upload-artifact@v4
       if: contains(github.ref_name, 'customer')
       with:
         name: package-image
-        path: neuronex${{ matrix.suffix }}.tar
-    - name: Retag images
-      id: retag-images
-      if: github.ref_type == 'tag'
-      run: |
-        # 初始化空字符串存储所有新镜像
-        new_image=""
+        path: neuronex${{ matrix.arch }}-${{ matrix.suffix }}.tar
+    # - name: Retag images
+    #   id: retag-images
+    #   if: github.ref_type == 'tag'
+    #   run: |
+    #     # 初始化空字符串存储所有新镜像
+    #     new_image=""
         
-        # 处理多行格式的 tags，使用 here-string 避免子 shell 问题
-        while read -r tag; do
-          # Skip if tag is empty
-          [ -z "$tag" ] && continue
+    #     # 处理多行格式的 tags，使用 here-string 避免子 shell 问题
+    #     while read -r tag; do
+    #       # Skip if tag is empty
+    #       [ -z "$tag" ] && continue
           
-          image="${tag##*/}"
-          new_tag=registry-intl.cn-shanghai.aliyuncs.com/bchub/${image}
-          docker pull "$tag"
-          docker tag "$tag" "${new_tag}"
+    #       image="${tag##*/}"
+    #       new_tag=registry-intl.cn-shanghai.aliyuncs.com/bchub/${image}
+    #       docker pull "$tag"
+    #       docker tag "$tag" "${new_tag}"
           
-          # 累积新镜像到多行字符串
-          if [ -z "$new_image" ]; then
-            new_image="$new_tag"
-          else
-            new_image="$new_image"$'\n'"$new_tag"
-          fi
-        done <<< "${{ steps.meta.outputs.tags }}"
+    #       # 累积新镜像到多行字符串
+    #       if [ -z "$new_image" ]; then
+    #         new_image="$new_tag"
+    #       else
+    #         new_image="$new_image"$'\n'"$new_tag"
+    #       fi
+    #     done <<< "${{ steps.meta.outputs.tags }}"
         
-        # 将多行字符串结果写入 GITHUB_OUTPUT
-        echo "new_image=$new_image" >> $GITHUB_OUTPUT
-    - uses: ./.github/actions/push-images-to-acr
-      if: github.ref_type == 'tag'
-      with:
-        acr-login-server: registry-intl.cn-shanghai.aliyuncs.com
-        acr-username: ${{ secrets.REGISTRY_USERNAME }}
-        acr-password: ${{ secrets.REGISTRY_PASSWORD }}
-        tags: ${{ steps.retag-images.outputs.new_image }}
-        skip-login: 'false'
+    #     # 将多行字符串结果写入 GITHUB_OUTPUT
+    #     echo "new_image=$new_image" >> $GITHUB_OUTPUT
+    # - uses: ./.github/actions/push-images-to-acr
+    #   if: github.ref_type == 'tag'
+    #   with:
+    #     acr-login-server: registry-intl.cn-shanghai.aliyuncs.com
+    #     acr-username: ${{ secrets.REGISTRY_USERNAME }}
+    #     acr-password: ${{ secrets.REGISTRY_PASSWORD }}
+    #     tags: ${{ steps.retag-images.outputs.new_image }}
+    #     skip-login: 'false'
   
   build:
     runs-on: ${{ matrix.arch }}
