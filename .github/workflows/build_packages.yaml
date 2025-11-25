@@ -227,18 +227,11 @@ jobs:
         env:
           GIT_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          if [[ "${{ runner.name }}" == "ubuntu-22.04-arm" ]]; then
-            platform="linux/arm64"
-          else
-            platform="linux/amd64"
-          fi
-
           docker run -i --rm \
           -v $(pwd):/neuronex \
           --workdir /neuronex \
           -e GIT_TOKEN=${{ steps.app-token.outputs.token }} \
           -e DEBUG=1 \
-          --platform ${platform} \
           ghcr.io/emqx/neuronex-go/neuronex-builder:${{ matrix.golang }}-${{ matrix.os }} \
           bash -euc "git config --global --add safe.directory /neuronex && git config --global url."https://oauth2:${GIT_TOKEN}@github.com/emqx".insteadOf "https://github.com/emqx" && .github/scripts/install_dep_rpm.sh  && make pkg"
       - name: build
@@ -246,18 +239,11 @@ jobs:
         env:
           GIT_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          if [[ "${{ runner.name }}" == "ubuntu-22.04-arm" ]]; then
-            platform="linux/arm64"
-          else
-            platform="linux/amd64"
-          fi
-
           docker run -i --rm \
           -v $(pwd):/neuronex \
           --workdir /neuronex \
           -e GIT_TOKEN=${{ steps.app-token.outputs.token }} \
           -e DEBUG=1 \
-          --platform ${platform} \
           ghcr.io/emqx/neuronex-go/neuronex-builder:${{ matrix.golang }}-${{ matrix.os }} \
           bash -euc "git config --global --add safe.directory /neuronex && git config --global url."https://oauth2:${GIT_TOKEN}@github.com/emqx".insteadOf "https://github.com/emqx" && make tar_pkg &&  make pkg && .github/scripts/install_test.sh"
       - name: generate-sha256
