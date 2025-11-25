@@ -110,8 +110,6 @@ jobs:
         outputs: type=image,name=target,push-by-digest=true,name-canonical=true
         # Disable attestation to avoid conflicts with digest-based pushing
         provenance: false
-        # Load the image locally with tags but do not push tagged versions
-        load: true
     - name: Export digest
       run: |
         mkdir -p /tmp/digests
