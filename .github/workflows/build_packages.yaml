@@ -13,15 +13,16 @@ on:
 
 jobs:
   build-docker-images:
-    runs-on: 
-      - ubuntu-22.04
-      - ubuntu-22.04-arm
+    runs-on: ${{ matrix.arch }}
     permissions: write-all
     if: github.ref_type == 'tag'
 
     strategy:
         fail-fast: false
         matrix:
+          arch:
+            - ubuntu-22.04
+            - ubuntu-22.04-arm
           suffix:
             - ""
             - "-slim"
@@ -170,9 +171,7 @@ jobs:
         skip-login: 'false'
   
   build:
-    runs-on: 
-      - ubuntu-22.04
-      - ubuntu-22.04-arm
+    runs-on: ${{ matrix.arch }}
 
     permissions:
       contents: read
@@ -180,6 +179,9 @@ jobs:
 
     strategy:
       matrix:
+        arch:
+          - ubuntu-22.04
+          - ubuntu-22.04-arm
         golang:
           - 1.23.3
         os:
