@@ -100,14 +100,14 @@ jobs:
       uses: docker/build-push-action@v3
       with:
         push: ${{ github.ref_type == 'tag' }}
-        tags: ${{ steps.meta.outputs.tags }}
+        # tags: ${{ steps.meta.outputs.tags }}
         build-args: |
           GIT_TOKEN=${{ steps.app-token.outputs.token }}
         labels: ${{ steps.meta.outputs.labels }}
         file: deploy/docker/Dockerfile${{ matrix.suffix }}
         context: .
         platforms: ${{ matrix.platform }}
-        outputs: type=image,name=target,push-by-digest=true,name-canonical=true
+        outputs: type=image,name=docker.io/emqx/neuronex,push-by-digest=true,name-canonical=true
         # Disable attestation to avoid conflicts with digest-based pushing
         provenance: false
     - name: Export digest
