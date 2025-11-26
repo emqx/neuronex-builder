@@ -79,10 +79,13 @@ jobs:
     - name: Extract neuronex_version variables
       run: |
         while IFS=':' read -r key value; do
-          # Trim whitespace from value
-          value=$(echo "$value" | sed 's/[[:space:]]*$//')
+          # Trim leading and trailing whitespace from both key and value
+          key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          value=$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          # Set the environment variable in GitHub Actions
           echo "${key}=${value}" >> $GITHUB_ENV
         done < neuronex_version
+
         mv version /tmp/version
         cat neuronex_version
         echo "\n==============\n"
@@ -266,10 +269,13 @@ jobs:
       - name: Extract neuronex_version variables
         run: |
           while IFS=':' read -r key value; do
-            # Trim whitespace from value
-            value=$(echo "$value" | sed 's/[[:space:]]*$//')
+            # Trim leading and trailing whitespace from both key and value
+            key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            value=$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            # Set the environment variable in GitHub Actions
             echo "${key}=${value}" >> $GITHUB_ENV
           done < neuronex_version
+          
           mv version /tmp/version
           cat neuronex_version
           echo "\n==============\n"
