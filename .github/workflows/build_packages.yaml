@@ -396,6 +396,7 @@ jobs:
         suffix:
           - ""
           - "-slim"
+          - "-ai"
     steps:
       - name: Download digests
         uses: actions/download-artifact@v4
