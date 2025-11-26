@@ -345,12 +345,7 @@ jobs:
             neuronex-go
             neuronex-builder
       - uses: actions/checkout@v4
-        with:
-          repository: emqx/neuronex-go
-          fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
-          path: .
-          ref: ${{ github.ref }}
+
       - uses: actions/download-artifact@v4
         with:
           pattern: packages-*
