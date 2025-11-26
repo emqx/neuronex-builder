@@ -259,6 +259,8 @@ jobs:
             echo "${key}=${value}" >> $GITHUB_ENV
           done < neuronex_version
           mv version /tmp/version
+          cat neuronex_version
+          echo "NeuronEX Version:  ${{ env.neuronex }}"
       - uses: actions/checkout@v4
         with:
           repository: emqx/neuronex-go
