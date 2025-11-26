@@ -79,9 +79,19 @@ jobs:
     - name: Extract neuronex_version variables
       run: |
         while IFS=':' read -r key value; do
+          # Trim whitespace from value
+          value=$(echo "$value" | sed 's/[[:space:]]*$//')
           echo "${key}=${value}" >> $GITHUB_ENV
         done < neuronex_version
         mv version /tmp/version
+        cat neuronex_version
+        echo "\n==============\n"
+
+        if [ -z "${{ env.neuronex }}" ]; then
+          echo "Error: NeuronEX version is empty. Exiting."
+          exit 1
+        fi
+        echo "NeuronEX Version: ${{ env.neuronex }}"
     - uses: actions/checkout@v4
       with:
         repository: emqx/neuronex-go
@@ -256,11 +266,19 @@ jobs:
       - name: Extract neuronex_version variables
         run: |
           while IFS=':' read -r key value; do
+            # Trim whitespace from value
+            value=$(echo "$value" | sed 's/[[:space:]]*$//')
             echo "${key}=${value}" >> $GITHUB_ENV
           done < neuronex_version
           mv version /tmp/version
           cat neuronex_version
-          echo "NeuronEX Version:  ${{ env.neuronex }}"
+          echo "\n==============\n"
+
+          if [ -z "${{ env.neuronex }}" ]; then
+            echo "Error: NeuronEX version is empty. Exiting."
+            exit 1
+          fi
+          echo "NeuronEX Version: ${{ env.neuronex }}"
       - uses: actions/checkout@v4
         with:
           repository: emqx/neuronex-go
