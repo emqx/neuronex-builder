@@ -77,31 +77,28 @@ jobs:
       with:
         path: .
     - name: Extract neuronex_version variables
+      id: extract-variables
       run: |
-        while IFS=':' read -r key value; do
-          # Trim leading and trailing whitespace from both key and value
-          key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-          value=$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-          # Set the environment variable in GitHub Actions
-          echo "${key}=${value}" >> $GITHUB_ENV
-        done < neuronex_version
-
+        neuronex=$(grep -E '^[[:space:]]*neuronex[[:space:]]*:' neuronex_version | sed 's/^[[:space:]]*neuronex[[:space:]]*://;s/[[:space:]]*$//')
+        echo "neuronex=$neuronex"
+        echo "neuronex=$neuronex" >> "$GITHUB_OUTPUT" 
+        
         mv version /tmp/version
         cat neuronex_version
         echo "\n==============\n"
 
-        if [ -z "${{ env.neuronex }}" ]; then
+        if [ -z "$neuronex" ]; then
           echo "Error: NeuronEX version is empty. Exiting."
           exit 1
         fi
-        echo "NeuronEX Version: ${{ env.neuronex }}"
+        echo "NeuronEX Version: $neuronex"
     - uses: actions/checkout@v4
       with:
         repository: emqx/neuronex-go
         fetch-depth: 0
         token: ${{ steps.app-token.outputs.token }}
         path: .
-        ref: ${{ env.neuronex }}
+        ref: ${{ steps.extract-variables.outputs.neuronex }}
     - name: Replace version file
       run: |
         cp /tmp/version ./scripts/version
@@ -267,31 +264,28 @@ jobs:
         with:
           path: .
       - name: Extract neuronex_version variables
+        id: extract-variables
         run: |
-          while IFS=':' read -r key value; do
-            # Trim leading and trailing whitespace from both key and value
-            key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-            value=$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-            # Set the environment variable in GitHub Actions
-            echo "${key}=${value}" >> $GITHUB_ENV
-          done < neuronex_version
+          neuronex=$(grep -E '^[[:space:]]*neuronex[[:space:]]*:' neuronex_version | sed 's/^[[:space:]]*neuronex[[:space:]]*://;s/[[:space:]]*$//')
+          echo "neuronex=$neuronex"
+          echo "neuronex=$neuronex" >> "$GITHUB_OUTPUT" 
           
           mv version /tmp/version
           cat neuronex_version
           echo "\n==============\n"
 
-          if [ -z "${{ env.neuronex }}" ]; then
+          if [ -z "$neuronex" ]; then
             echo "Error: NeuronEX version is empty. Exiting."
             exit 1
           fi
-          echo "NeuronEX Version: ${{ env.neuronex }}"
+          echo "NeuronEX Version: $neuronex"
       - uses: actions/checkout@v4
         with:
           repository: emqx/neuronex-go
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
           path: .
-          ref: ${{ env.neuronex }}
+          ref: ${{ steps.extract-variables.outputs.neuronex }}
       - name: Replace version file
         run: |
           cp /tmp/version ./scripts/version
