@@ -1,7 +1,7 @@
 name: Build custome packages
 
 concurrency:
-  group: build-${{ github.event_name }}-${{ github.ref }}
+  group: build-${{ github.event_name }}-${{ github.ref }}-custome
   cancel-in-progress: true
 
 on:
