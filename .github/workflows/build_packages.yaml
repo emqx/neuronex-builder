@@ -43,6 +43,7 @@ jobs:
           suffix:
             - ""
             - "-slim"
+            - "-ai"
           # Add platform information
           include:
             - arch: ubuntu-22.04
