@@ -33,7 +33,7 @@ EMQX NeuronEX builder is a tool to build NeuronEX install packages and container
 
 1. to set the all dependency package version in version file and neuronex_version file
 2. commit the version file and neuronex_version file, then push it
-3. make a custom tag in this repo and push it, e.g. 3.7.0-customer_flag
-4. the custom tag must be X.Y.Z-customer_flag-[alpha|beta|rc].N, e.g. 3.7.0-customname20251001-alpha.1, `-[alpha|beta|rc].N` is optional
+3. make a custom tag in this repo and push it, e.g. 3.7.0-customerflag
+4. the custom tag must be X.Y.Z-customerflag-[alpha|beta|rc].N, e.g. 3.7.0-customname20251001-alpha.1, `-[alpha|beta|rc].N` is optional
 5. the package will be built automatically, available at [neuronex-builder releases](https://github.com/emqx/neuronex-builder/releases)
 6. the container image will be available at [emqx/neuronex](https://hub.docker.com/r/emqx/neuronex)
