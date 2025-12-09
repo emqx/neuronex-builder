@@ -420,17 +420,25 @@ jobs:
           
           # Create and push manifest
           TAGS="docker.io/emqx/neuronex:${{ github.ref_name }}${{ matrix.suffix }}"
-          if [[ "${{ matrix.suffix }}" == "" && "${{ github.ref_name }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            # 提取 x.y 版本
-            xy_version=$(echo "${{ github.ref_name }}" | cut -d. -f1,2)
-            TAGS+=" docker.io/emqx/neuronex:${xy_version} docker.io/emqx/neuronex:latest"
-          fi
           docker buildx imagetools create \
             --tag ${TAGS} \
             docker.io/emqx/neuronex@${amd64_digest} \
             docker.io/emqx/neuronex@${arm64_digest}
-          
-            
+
+          if [[ "${{ matrix.suffix }}" == "" && "${{ github.ref_name }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            # 提取 x.y 版本
+            xy_version=$(echo "${{ github.ref_name }}" | cut -d. -f1,2)
+            docker buildx imagetools create \
+              --tag docker.io/emqx/neuronex:${xy_version} \
+              docker.io/emqx/neuronex@${amd64_digest} \
+              docker.io/emqx/neuronex@${arm64_digest}
+
+            docker buildx imagetools create \
+              --tag docker.io/emqx/neuronex:latest \
+              docker.io/emqx/neuronex@${amd64_digest} \
+              docker.io/emqx/neuronex@${arm64_digest}
+          fi
+
       - name: Inspect image
         run: |
           docker buildx imagetools inspect docker.io/emqx/neuronex:${{ github.ref_name }}${{ matrix.suffix }}
