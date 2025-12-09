@@ -139,33 +139,33 @@ jobs:
         path: /tmp/digests/${{ matrix.suffix_platform }}${{ matrix.suffix }}.txt
         if-no-files-found: error
         retention-days: 1
-    - name: Manual Trivy Setup
-      uses: aquasecurity/setup-trivy@v0.2.0
-      with:
-        cache: true
-        version: v0.57.1
-    - name: Run Trivy scanner of neuronex on pr
-      if: github.event_name == 'pull_request'
-      run: |
-        trivy image --severity CRITICAL,HIGH --input /tmp/neuronex-${{ matrix.arch }}${{ matrix.suffix }}.tar --output ./trivy-report.txt --ignore-unfixed
-        sed -i '1s/^/```md\n\n/' ./trivy-report.txt
-        echo '```' >> ./trivy-report.txt
-    - name: Comment on PR about trivy
-      # 只有当 pr 的时候才触发评论
-      if: github.event_name == 'pull_request'
-      uses: peter-evans/create-or-update-comment@v4
-      with:
-        issue-number: ${{ github.event.pull_request.number }}
-        body-path: 'trivy-report.txt'
-    - name: Save image to file
-      if: contains(github.ref_name, 'customer')
-      run: |
-          docker save -o neuronex-${{ matrix.arch }}${{ matrix.suffix }}.tar ${{ steps.meta.outputs.tags }}
-    - uses: actions/upload-artifact@v4
-      if: contains(github.ref_name, 'customer')
-      with:
-        name: package-image
-        path: neuronex-${{ matrix.arch }}${{ matrix.suffix }}.tar
+    # - name: Manual Trivy Setup
+    #   uses: aquasecurity/setup-trivy@v0.2.0
+    #   with:
+    #     cache: true
+    #     version: v0.57.1
+    # - name: Run Trivy scanner of neuronex on pr
+    #   if: github.event_name == 'pull_request'
+    #   run: |
+    #     trivy image --severity CRITICAL,HIGH --input /tmp/neuronex-${{ matrix.arch }}${{ matrix.suffix }}.tar --output ./trivy-report.txt --ignore-unfixed
+    #     sed -i '1s/^/```md\n\n/' ./trivy-report.txt
+    #     echo '```' >> ./trivy-report.txt
+    # - name: Comment on PR about trivy
+    #   # 只有当 pr 的时候才触发评论
+    #   if: github.event_name == 'pull_request'
+    #   uses: peter-evans/create-or-update-comment@v4
+    #   with:
+    #     issue-number: ${{ github.event.pull_request.number }}
+    #     body-path: 'trivy-report.txt'
+    # - name: Save image to file
+    #   if: contains(github.ref_name, 'customer')
+    #   run: |
+    #       docker save -o neuronex-${{ matrix.arch }}${{ matrix.suffix }}.tar ${{ steps.meta.outputs.tags }}
+    # - uses: actions/upload-artifact@v4
+    #   if: contains(github.ref_name, 'customer')
+    #   with:
+    #     name: package-image
+    #     path: neuronex-${{ matrix.arch }}${{ matrix.suffix }}.tar
     # - name: Retag images
     #   id: retag-images
     #   if: github.ref_type == 'tag'
@@ -419,13 +419,23 @@ jobs:
           arm64_digest=$(cat /tmp/digests/arm64${{ matrix.suffix }}.txt)
           
           # Create and push manifest
+          TAGS="docker.io/emqx/neuronex:${{ github.ref_name }}${{ matrix.suffix }}"
+          if [[ "${{ matrix.suffix }}" == "" && "${{ github.ref_name }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            # 提取 x.y 版本
+            xy_version=$(echo "${{ github.ref_name }}" | cut -d. -f1,2)
+            TAGS+=" docker.io/emqx/neuronex:${xy_version} docker.io/emqx/neuronex:latest"
+          fi
           docker buildx imagetools create \
-            --tag docker.io/emqx/neuronex:${{ github.ref_name }}${{ matrix.suffix }} \
+            --tag ${TAGS} \
             docker.io/emqx/neuronex@${amd64_digest} \
             docker.io/emqx/neuronex@${arm64_digest}
+          
+            
       - name: Inspect image
         run: |
           docker buildx imagetools inspect docker.io/emqx/neuronex:${{ github.ref_name }}${{ matrix.suffix }}
+
+
 
   # trigger_regression_testing:
   #   runs-on: ubuntu-latest
