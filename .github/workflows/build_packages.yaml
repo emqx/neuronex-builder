@@ -350,7 +350,7 @@ jobs:
           name: NeuronEX ${{ github.ref_name }} Released
           files: |
             _packages/neuronex-*
-      - uses: aws-actions/configure-aws-credentials@v2
+      - uses: aws-actions/configure-aws-credentials@v3
         if: github.ref_type == 'tag'
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
