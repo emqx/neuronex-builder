@@ -350,39 +350,39 @@ jobs:
           name: NeuronEX ${{ github.ref_name }} Released
           files: |
             _packages/neuronex-*
-      # - uses: aws-actions/configure-aws-credentials@v2
-      #   if: github.ref_type == 'tag'
-      #   with:
-      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      #     aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-      # - name: upload to aws s3
-      #   if: github.ref_type == 'tag'
-      #   run: |
-      #     aws s3 cp --recursive _packages/ s3://${{ secrets.AWS_S3_BUCKET }}/neuronex/${{ github.ref_name }}
-      #     aws cloudfront create-invalidation --distribution-id ${{ secrets.AWS_CLOUDFRONT_ID }} --paths "/neuronex/${{ github.ref_name }}/*"
-      # - name: update website
-      #   if: github.ref_type == 'tag'
-      #   run: |
-      #     set -eux
-      #     curl -w %{http_code} \
-      #          --insecure \
-      #          -H "Content-Type: application/json" \
-      #          -H "token: ${{ secrets.EMQX_IO_TOKEN }}" \
-      #          -X POST \
-      #          -d "{\"repo\":\"emqx/neuronex-go\", \"tag\": \"${{ github.ref_name }}\" }" \
-      #          ${{ secrets.EMQX_IO_RELEASE_API }}
+      - uses: aws-actions/configure-aws-credentials@v5.1.1
+        if: github.ref_type == 'tag'
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      - name: upload to aws s3
+        if: github.ref_type == 'tag'
+        run: |
+          aws s3 cp --recursive _packages/ s3://${{ secrets.AWS_S3_BUCKET }}/neuronex/${{ github.ref_name }}
+          aws cloudfront create-invalidation --distribution-id ${{ secrets.AWS_CLOUDFRONT_ID }} --paths "/neuronex/${{ github.ref_name }}/*"
+      - name: update website
+        if: github.ref_type == 'tag'
+        run: |
+          set -eux
+          curl -w %{http_code} \
+               --insecure \
+               -H "Content-Type: application/json" \
+               -H "token: ${{ secrets.EMQX_IO_TOKEN }}" \
+               -X POST \
+               -d "{\"repo\":\"emqx/neuronex-go\", \"tag\": \"${{ github.ref_name }}\" }" \
+               ${{ secrets.EMQX_IO_RELEASE_API }}
       # - uses: geekyeggo/delete-artifact@v2
       #   with:
       #     name: packages
-      # - uses: peter-evans/dockerhub-description@v3
-      #   if: github.ref_type == 'tag'
-      #   with:
-      #     username: ${{ secrets.DOCKER_HUB_USER }}
-      #     password: ${{ secrets.DOCKER_HUB_TOKEN }}
-      #     repository: "emqx/neuronex"
-      #     readme-filepath: ./deploy/docker/README.md
-      #     short-description: ""
+      - uses: peter-evans/dockerhub-description@v3
+        if: github.ref_type == 'tag'
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          repository: "emqx/neuronex"
+          readme-filepath: ./deploy/docker/README.md
+          short-description: ""
 
   # Create multi-arch manifest
   create-manifest:
@@ -420,17 +420,25 @@ jobs:
           
           # Create and push manifest
           TAGS="docker.io/emqx/neuronex:${{ github.ref_name }}${{ matrix.suffix }}"
-          if [[ "${{ matrix.suffix }}" == "" && "${{ github.ref_name }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            # 提取 x.y 版本
-            xy_version=$(echo "${{ github.ref_name }}" | cut -d. -f1,2)
-            TAGS+=" docker.io/emqx/neuronex:${xy_version} docker.io/emqx/neuronex:latest"
-          fi
           docker buildx imagetools create \
             --tag ${TAGS} \
             docker.io/emqx/neuronex@${amd64_digest} \
             docker.io/emqx/neuronex@${arm64_digest}
-          
-            
+
+          if [[ "${{ matrix.suffix }}" == "" && "${{ github.ref_name }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            # 提取 x.y 版本
+            xy_version=$(echo "${{ github.ref_name }}" | cut -d. -f1,2)
+            docker buildx imagetools create \
+              --tag docker.io/emqx/neuronex:${xy_version} \
+              docker.io/emqx/neuronex@${amd64_digest} \
+              docker.io/emqx/neuronex@${arm64_digest}
+
+            docker buildx imagetools create \
+              --tag docker.io/emqx/neuronex:latest \
+              docker.io/emqx/neuronex@${amd64_digest} \
+              docker.io/emqx/neuronex@${arm64_digest}
+          fi
+
       - name: Inspect image
         run: |
           docker buildx imagetools inspect docker.io/emqx/neuronex:${{ github.ref_name }}${{ matrix.suffix }}
