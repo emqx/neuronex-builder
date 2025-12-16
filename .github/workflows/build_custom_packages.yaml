@@ -338,10 +338,8 @@ jobs:
 
   release:
     runs-on: ubuntu-latest
-    if: github.ref_type == 'tag'
-
+    if: github.ref_type == 'tag' && !cancelled() && (needs.validate-tag-format.result == 'success' && contains(join(needs.build.result, ','), 'success'))
     permissions: write-all
-
     needs:
       - build
       - validate-tag-format
