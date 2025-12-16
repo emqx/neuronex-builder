@@ -230,6 +230,7 @@ jobs:
     needs: validate-tag-format
 
     strategy:
+      fail-fast: false
       matrix:
         arch:
           - ubuntu-22.04
@@ -239,9 +240,7 @@ jobs:
         os:
           - ubuntu
           - centos
-        # exclude:
-        #   - arch: linux/arm/v7
-        #     os: centos 
+
 
     steps:
       - name: Generate GitHub App token
