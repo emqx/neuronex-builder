@@ -370,7 +370,7 @@ jobs:
                -H "Content-Type: application/json" \
                -H "token: ${{ secrets.EMQX_IO_TOKEN }}" \
                -X POST \
-               -d "{\"repo\":\"emqx/neuronex-go\", \"tag\": \"${{ github.ref_name }}\" }" \
+               -d "{\"repo\":\"emqx/neuronex-builder\", \"tag\": \"${{ github.ref_name }}\" }" \
                ${{ secrets.EMQX_IO_RELEASE_API }}
       # - uses: geekyeggo/delete-artifact@v2
       #   with:
