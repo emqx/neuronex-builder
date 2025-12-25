@@ -345,9 +345,11 @@ jobs:
           ## This prevents you from accidentally creating recursive workflow runs.
           ## More info: https://docs.github.com/en/actions/using-workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow
           token: ${{ steps.app-token.outputs.token }}
-          prerelease: true
+          # prerelease: true
           generate_release_notes: true
           name: NeuronEX ${{ github.ref_name }} Released
+          body_path: release_notes/${{ github.ref_name }}.md
+          body: "NeuronEX ${{ github.ref_name }} Released"
           files: |
             _packages/neuronex-*
       - uses: aws-actions/configure-aws-credentials@v5.1.1
