@@ -346,7 +346,7 @@ jobs:
           ## More info: https://docs.github.com/en/actions/using-workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow
           token: ${{ steps.app-token.outputs.token }}
           # prerelease: true
-          generate_release_notes: true
+          #generate_release_notes: true
           name: NeuronEX ${{ github.ref_name }} Released
           body_path: release_notes/${{ github.ref_name }}.md
           body: "NeuronEX ${{ github.ref_name }} Released"
