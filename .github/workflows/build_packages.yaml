@@ -216,7 +216,7 @@ jobs:
           - ubuntu-22.04
           - ubuntu-22.04-arm
         golang:
-          - 1.23.3
+          - 1.23.8
         os:
           - ubuntu
           - centos
@@ -336,8 +336,17 @@ jobs:
           pattern: packages-*
           merge-multiple: true
           path: _packages
+      # 第一步：检查文件是否存在，将结果存入步骤输出
+      - name: Check if release note file exists
+        id: check_release_note
+        run: |
+          if [ -f "release_notes/${{ github.ref_name }}.md" ]; then
+            echo "file_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "file_exists=false" >> $GITHUB_OUTPUT
+          fi
       - uses: softprops/action-gh-release@v1
-        if: github.ref_type == 'tag'
+        if: steps.check_release_note.outputs.file_exists == 'true'
         with:
           ## When you use the repository's GITHUB_TOKEN to perform tasks,
           ## events triggered by the GITHUB_TOKEN, with the exception of workflow_dispatch and repository_dispatch,
@@ -345,9 +354,25 @@ jobs:
           ## This prevents you from accidentally creating recursive workflow runs.
           ## More info: https://docs.github.com/en/actions/using-workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow
           token: ${{ steps.app-token.outputs.token }}
-          prerelease: true
-          generate_release_notes: true
+          # prerelease: true
+          #generate_release_notes: true
           name: NeuronEX ${{ github.ref_name }} Released
+          body_path: release_notes/${{ github.ref_name }}.md
+          files: |
+            _packages/neuronex-*
+      - uses: softprops/action-gh-release@v1
+        if: steps.check_release_note.outputs.file_exists == 'false'
+        with:
+          ## When you use the repository's GITHUB_TOKEN to perform tasks,
+          ## events triggered by the GITHUB_TOKEN, with the exception of workflow_dispatch and repository_dispatch,
+          ## will not create a new workflow run.
+          ## This prevents you from accidentally creating recursive workflow runs.
+          ## More info: https://docs.github.com/en/actions/using-workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow
+          token: ${{ steps.app-token.outputs.token }}
+          # prerelease: true
+          #generate_release_notes: true
+          name: NeuronEX ${{ github.ref_name }} Released
+          body: "NeuronEX ${{ github.ref_name }} Released"
           files: |
             _packages/neuronex-*
       - uses: aws-actions/configure-aws-credentials@v5.1.1
@@ -387,7 +412,7 @@ jobs:
   # Create multi-arch manifest
   create-manifest:
     runs-on: ubuntu-latest
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' && always()
     needs:
       - build-docker-images
       - check-validate-tag-format
