@@ -434,7 +434,7 @@ jobs:
   # Create multi-arch manifest
   create-manifest:
     runs-on: ubuntu-latest
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' && always() && (needs.build-docker-images.result == 'success' || needs.build-docker-images.result == 'failure')
     needs:
       - build-docker-images
       - validate-tag-format
