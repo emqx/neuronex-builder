@@ -81,8 +81,11 @@ jobs:
       id: extract-variables
       run: |
         neuronex=$(grep -E '^[[:space:]]*neuronex[[:space:]]*:' neuronex_version | sed 's/^[[:space:]]*neuronex[[:space:]]*://;s/[[:space:]]*$//')
+        neuron_repo=$(grep -E '^[[:space:]]*neuron_repo[[:space:]]*:' neuronex_version | sed 's/^[[:space:]]*neuron_repo[[:space:]]*://;s/[[:space:]]*$//')
         echo "neuronex=$neuronex"
+        echo "neuron_repo=$neuron_repo"
         echo "neuronex=$neuronex" >> "$GITHUB_OUTPUT" 
+        echo "neuron_repo=$neuron_repo" >> "$GITHUB_OUTPUT" 
         
         mv version /tmp/version
         cat neuronex_version
@@ -93,6 +96,8 @@ jobs:
           exit 1
         fi
         echo "NeuronEX Version: $neuronex"
+
+        mv ./get_lib.sh /tmp/get_lib.sh
     - uses: actions/checkout@v4
       with:
         repository: emqx/neuronex-go
@@ -103,6 +108,7 @@ jobs:
     - name: Replace version file
       run: |
         cp /tmp/version ./scripts/version
+        cp /tmp/get_lib.sh ./scripts/get_lib.sh
     - name: Check latest image
       id: latest
       run: |
@@ -141,6 +147,7 @@ jobs:
         # tags: ${{ steps.meta.outputs.tags }}
         build-args: |
           GIT_TOKEN=${{ steps.app-token.outputs.token }}
+          NEURON_PRIV_REPO=${{ steps.extract-variables.outputs.neuron_repo }}
         labels: ${{ steps.meta.outputs.labels }}
         file: deploy/docker/Dockerfile${{ matrix.suffix }}
         context: .
@@ -267,9 +274,11 @@ jobs:
         id: extract-variables
         run: |
           neuronex=$(grep -E '^[[:space:]]*neuronex[[:space:]]*:' neuronex_version | sed 's/^[[:space:]]*neuronex[[:space:]]*://;s/[[:space:]]*$//')
+          neuron_repo=$(grep -E '^[[:space:]]*neuron_repo[[:space:]]*:' neuronex_version | sed 's/^[[:space:]]*neuron_repo[[:space:]]*://;s/[[:space:]]*$//')
           echo "neuronex=$neuronex"
+          echo "neuron_repo=$neuron_repo"
           echo "neuronex=$neuronex" >> "$GITHUB_OUTPUT" 
-          
+          echo "neuron_repo=$neuron_repo" >> "$GITHUB_OUTPUT" 
           mv version /tmp/version
           cat neuronex_version
           echo "\n==============\n"
@@ -279,6 +288,8 @@ jobs:
             exit 1
           fi
           echo "NeuronEX Version: $neuronex"
+
+          mv ./get_lib.sh /tmp/get_lib.sh
       - uses: actions/checkout@v4
         with:
           repository: emqx/neuronex-go
@@ -289,6 +300,7 @@ jobs:
       - name: Replace version file
         run: |
           cp /tmp/version ./scripts/version
+          cp /tmp/get_lib.sh ./scripts/get_lib.sh
       - uses: docker/login-action@v2
         with:
           registry: ghcr.io
@@ -304,6 +316,7 @@ jobs:
           -v $(pwd):/neuronex \
           --workdir /neuronex \
           -e GIT_TOKEN=${{ steps.app-token.outputs.token }} \
+          -e NEURON_PRIV_REPO=${{ steps.extract-variables.outputs.neuron_repo }} \
           -e DEBUG=1 \
           ghcr.io/emqx/neuronex-go/neuronex-builder:${{ matrix.golang }}-${{ matrix.os }} \
           bash -euc "git config --global --add safe.directory /neuronex && git config --global url."https://oauth2:${GIT_TOKEN}@github.com/emqx".insteadOf "https://github.com/emqx" && .github/scripts/install_dep_rpm.sh  && make pkg"
@@ -316,6 +329,7 @@ jobs:
           -v $(pwd):/neuronex \
           --workdir /neuronex \
           -e GIT_TOKEN=${{ steps.app-token.outputs.token }} \
+          -e NEURON_PRIV_REPO=${{ steps.extract-variables.outputs.neuron_repo }} \
           -e DEBUG=1 \
           ghcr.io/emqx/neuronex-go/neuronex-builder:${{ matrix.golang }}-${{ matrix.os }} \
           bash -euc "git config --global --add safe.directory /neuronex && git config --global url."https://oauth2:${GIT_TOKEN}@github.com/emqx".insteadOf "https://github.com/emqx" && make tar_pkg &&  make pkg && .github/scripts/install_test.sh"
