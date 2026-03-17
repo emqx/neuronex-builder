@@ -74,6 +74,7 @@ jobs:
           gotools
           neuron-modules
           neuronex-go
+          neuron-modules
     - uses: actions/checkout@v4
       with:
         path: .
@@ -267,6 +268,7 @@ jobs:
             gotools
             neuron-modules
             neuronex-go
+            neuron-modules
       - uses: actions/checkout@v4
         with:
           path: .
@@ -376,6 +378,7 @@ jobs:
             neuron-modules
             neuronex-go
             neuronex-builder
+            neuron-modules
       - uses: actions/checkout@v4
 
       - uses: actions/download-artifact@v4
