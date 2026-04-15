@@ -400,7 +400,7 @@ jobs:
       # - uses: geekyeggo/delete-artifact@v2
       #   with:
       #     name: packages
-      - uses: peter-evans/dockerhub-description@v3
+      - uses: peter-evans/dockerhub-description@v5
         if: github.ref_type == 'tag'
         with:
           username: ${{ secrets.DOCKER_HUB_USER }}
