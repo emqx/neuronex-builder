@@ -400,14 +400,14 @@ jobs:
       # - uses: geekyeggo/delete-artifact@v2
       #   with:
       #     name: packages
-      - uses: peter-evans/dockerhub-description@v5
-        if: github.ref_type == 'tag'
-        with:
-          username: ${{ secrets.DOCKER_HUB_USER }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
-          repository: "emqx/neuronex"
-          readme-filepath: ./deploy/docker/README.md
-          short-description: ""
+      # - uses: peter-evans/dockerhub-description@v5
+      #   if: github.ref_type == 'tag'
+      #   with:
+      #     username: ${{ secrets.DOCKER_HUB_USER }}
+      #     password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      #     repository: "emqx/neuronex"
+      #     readme-filepath: ./deploy/docker/README.md
+      #     short-description: ""
 
   # Create multi-arch manifest
   create-manifest:
