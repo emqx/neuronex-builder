@@ -464,8 +464,8 @@ jobs:
       - name: Login to DockerHub
         uses: docker/login-action@v2
         with:
-          username: ${{ secrets.DOCKER_HUB_USER }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          username: ${{ secrets.DOCKER_HUB_CUSTOM_USER }}
+          password: ${{ secrets.DOCKER_HUB_CUSTOM_TOKEN }}
       - name: Create and push manifest
         run: |
           ls -la /tmp/digests/
@@ -475,12 +475,12 @@ jobs:
           
           # Create and push manifest
           docker buildx imagetools create \
-            --tag docker.io/emqx/neuronex:${{ github.ref_name }}${{ matrix.suffix }} \
-            docker.io/emqx/neuronex@${amd64_digest} \
-            docker.io/emqx/neuronex@${arm64_digest}
+            --tag docker.io/emqxecp/neuronex:${{ github.ref_name }}${{ matrix.suffix }} \
+            docker.io/emqxecp/neuronex@${amd64_digest} \
+            docker.io/emqxecp/neuronex@${arm64_digest}
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect docker.io/emqx/neuronex:${{ github.ref_name }}${{ matrix.suffix }}
+          docker buildx imagetools inspect docker.io/emqxecp/neuronex:${{ github.ref_name }}${{ matrix.suffix }}
 
   # trigger_regression_testing:
   #   runs-on: ubuntu-latest
