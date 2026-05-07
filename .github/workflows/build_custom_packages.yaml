@@ -57,119 +57,119 @@ jobs:
               suffix_platform: arm64
 
     steps:
-    - name: Generate GitHub App token
-      id: app-token
-      uses: actions/create-github-app-token@v1
-      with:
-        app-id: ${{ vars.AUTH_APP_ID }}
-        private-key: ${{ secrets.AUTH_APP_PRIVATE_KEY }}
-        owner: ${{ github.repository_owner }}
-        repositories: |
-          ai-chart
-          emqx-ai
-          ekuiper
-          neuron
-          neuronex-dashboard
-          neuronex-ai
-          gotools
-          neuron-modules
-          neuronex-go
-    - uses: actions/checkout@v4
-      with:
-        path: .
-    - name: Extract neuronex_version variables
-      id: extract-variables
-      run: |
-        neuronex=$(grep -E '^[[:space:]]*neuronex[[:space:]]*:' neuronex_version | sed 's/^[[:space:]]*neuronex[[:space:]]*://;s/[[:space:]]*$//')
-        neuron_repo=$(grep -E '^[[:space:]]*neuron_repo[[:space:]]*:' neuronex_version | sed 's/^[[:space:]]*neuron_repo[[:space:]]*://;s/[[:space:]]*$//')
-        echo "neuronex=$neuronex"
-        echo "neuron_repo=$neuron_repo"
-        echo "neuronex=$neuronex" >> "$GITHUB_OUTPUT" 
-        echo "neuron_repo=$neuron_repo" >> "$GITHUB_OUTPUT" 
-        
-        mv version /tmp/version
-        cat neuronex_version
-        echo "\n==============\n"
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.AUTH_APP_ID }}
+          private-key: ${{ secrets.AUTH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            ai-chart
+            emqx-ai
+            ekuiper
+            neuron
+            neuronex-dashboard
+            neuronex-ai
+            gotools
+            neuron-modules
+            neuronex-go
+      - uses: actions/checkout@v4
+        with:
+          path: .
+      - name: Extract neuronex_version variables
+        id: extract-variables
+        run: |
+          neuronex=$(grep -E '^[[:space:]]*neuronex[[:space:]]*:' neuronex_version | sed 's/^[[:space:]]*neuronex[[:space:]]*://;s/[[:space:]]*$//')
+          neuron_repo=$(grep -E '^[[:space:]]*neuron_repo[[:space:]]*:' neuronex_version | sed 's/^[[:space:]]*neuron_repo[[:space:]]*://;s/[[:space:]]*$//')
+          echo "neuronex=$neuronex"
+          echo "neuron_repo=$neuron_repo"
+          echo "neuronex=$neuronex" >> "$GITHUB_OUTPUT"
+          echo "neuron_repo=$neuron_repo" >> "$GITHUB_OUTPUT"
 
-        if [ -z "$neuronex" ]; then
-          echo "Error: NeuronEX version is empty. Exiting."
-          exit 1
-        fi
-        echo "NeuronEX Version: $neuronex"
-    - uses: actions/checkout@v4
-      with:
-        repository: emqx/neuronex-go
-        fetch-depth: 0
-        token: ${{ steps.app-token.outputs.token }}
-        path: .
-        ref: ${{ steps.extract-variables.outputs.neuronex }}
-    - name: Replace version file
-      run: |
-        cp /tmp/version ./scripts/version
-    - name: Patch neuron URL in get_lib.sh if custom neuron_repo
-      if: ${{ steps.extract-variables.outputs.neuron_repo != 'emqx/neuron' }}
-      run: |
-        set -eux
-        sed -i.bak 's|neuron_url="https://github.com/emqx/neuron/releases/download/\${neuron_version}/neuron-\${neuron_version}-linux-\${neuron_architecture}.tar.gz"|neuron_url="https://github.com/${{ steps.extract-variables.outputs.neuron_repo }}/releases/download/${neuron_version}/neuron-${neuron_version}-linux-${neuron_architecture}.tar.gz"|' ./scripts/get_lib.sh
-        sed -i.bak 's|NEURON_PRIV_REPO=${NEURON_PRIV_REPO:-""}|NEURON_PRIV_REPO=${NEURON_PRIV_REPO:-"${{ steps.extract-variables.outputs.neuron_repo }}"}|' ./scripts/get_lib.sh
-        rm -f ./scripts/get_lib.sh.bak
-        cat ./scripts/get_lib.sh
-    - name: Check latest image
-      id: latest
-      run: |
-        echo "latest=false" >> $GITHUB_OUTPUT
-        if ${{ matrix.suffix == '' }}; then
-          if echo "${{ github.ref_name }}" |egrep -q "^[0-9].[0-9].[0-9]$"; then
-            echo "latest=true" >> $GITHUB_OUTPUT
+          mv version /tmp/version
+          cat neuronex_version
+          echo "\n==============\n"
+
+          if [ -z "$neuronex" ]; then
+            echo "Error: NeuronEX version is empty. Exiting."
+            exit 1
           fi
-        fi
-    - name: Cusmoter image tag
-      id: customer
-      run: |
-        tag="${GITHUB_REF##*/}"
-        echo "tag=$tag" >> $GITHUB_OUTPUT
-    - uses: docker/metadata-action@v4
-      id: meta
-      with:
-        images: docker.io/emqxecp/neuronex
-        flavor: |
-          latest=${{ steps.latest.outputs.latest }}
-          suffix=${{ matrix.suffix }}
-        tags: |
-          type=ref,event=tag,enable=true
-    - uses: docker/login-action@v2
-      if: github.ref_type == 'tag'
-      with:
-        username: ${{ secrets.DOCKER_HUB_USER }}
-        password: ${{ secrets.DOCKER_HUB_TOKEN }}
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
-    - name: Build and push by digest
-      id: build
-      uses: docker/build-push-action@v3
-      with:
-        push: ${{ github.ref_type == 'tag' }}
-        # tags: ${{ steps.meta.outputs.tags }}
-        build-args: |
-          GIT_TOKEN=${{ steps.app-token.outputs.token }}
-        labels: ${{ steps.meta.outputs.labels }}
-        file: deploy/docker/Dockerfile${{ matrix.suffix }}
-        context: .
-        platforms: ${{ matrix.platform }}
-    outputs: type=image,name=docker.io/emqxecp/neuronex,push-by-digest=true,name-canonical=true
-        # Disable attestation to avoid conflicts with digest-based pushing
-        provenance: false
-    - name: Export digest
-      run: |
-        mkdir -p /tmp/digests
-        echo ${{ steps.build.outputs.digest }} > /tmp/digests/${{ matrix.suffix_platform }}${{ matrix.suffix }}.txt
-    - name: Upload digest
-      uses: actions/upload-artifact@v4
-      with:
-        name: digests-${{ matrix.suffix_platform }}${{ matrix.suffix }}
-        path: /tmp/digests/${{ matrix.suffix_platform }}${{ matrix.suffix }}.txt
-        if-no-files-found: error
-        retention-days: 1
+          echo "NeuronEX Version: $neuronex"
+      - uses: actions/checkout@v4
+        with:
+          repository: emqx/neuronex-go
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+          path: .
+          ref: ${{ steps.extract-variables.outputs.neuronex }}
+      - name: Replace version file
+        run: |
+          cp /tmp/version ./scripts/version
+      - name: Patch neuron URL in get_lib.sh if custom neuron_repo
+        if: ${{ steps.extract-variables.outputs.neuron_repo != 'emqx/neuron' }}
+        run: |
+          set -eux
+          sed -i.bak 's|neuron_url="https://github.com/emqx/neuron/releases/download/\${neuron_version}/neuron-\${neuron_version}-linux-\${neuron_architecture}.tar.gz"|neuron_url="https://github.com/${{ steps.extract-variables.outputs.neuron_repo }}/releases/download/${neuron_version}/neuron-${neuron_version}-linux-${neuron_architecture}.tar.gz"|' ./scripts/get_lib.sh
+          sed -i.bak 's|NEURON_PRIV_REPO=${NEURON_PRIV_REPO:-""}|NEURON_PRIV_REPO=${NEURON_PRIV_REPO:-"${{ steps.extract-variables.outputs.neuron_repo }}"}|' ./scripts/get_lib.sh
+          rm -f ./scripts/get_lib.sh.bak
+          cat ./scripts/get_lib.sh
+      - name: Check latest image
+        id: latest
+        run: |
+          echo "latest=false" >> $GITHUB_OUTPUT
+          if ${{ matrix.suffix == '' }}; then
+            if echo "${{ github.ref_name }}" |egrep -q "^[0-9].[0-9].[0-9]$"; then
+              echo "latest=true" >> $GITHUB_OUTPUT
+            fi
+          fi
+      - name: Cusmoter image tag
+        id: customer
+        run: |
+          tag="${GITHUB_REF##*/}"
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+      - uses: docker/metadata-action@v4
+        id: meta
+        with:
+          images: docker.io/emqxecp/neuronex
+          flavor: |
+            latest=${{ steps.latest.outputs.latest }}
+            suffix=${{ matrix.suffix }}
+          tags: |
+            type=ref,event=tag,enable=true
+      - uses: docker/login-action@v2
+        if: github.ref_type == 'tag'
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v3
+        with:
+          push: ${{ github.ref_type == 'tag' }}
+          # tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            GIT_TOKEN=${{ steps.app-token.outputs.token }}
+          labels: ${{ steps.meta.outputs.labels }}
+          file: deploy/docker/Dockerfile${{ matrix.suffix }}
+          context: .
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=docker.io/emqxecp/neuronex,push-by-digest=true,name-canonical=true
+          # Disable attestation to avoid conflicts with digest-based pushing
+          provenance: false
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          echo ${{ steps.build.outputs.digest }} > /tmp/digests/${{ matrix.suffix_platform }}${{ matrix.suffix }}.txt
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.suffix_platform }}${{ matrix.suffix }}
+          path: /tmp/digests/${{ matrix.suffix_platform }}${{ matrix.suffix }}.txt
+          if-no-files-found: error
+          retention-days: 1
     # - name: Manual Trivy Setup
     #   uses: aquasecurity/setup-trivy@v0.2.0
     #   with:
