@@ -475,7 +475,7 @@ jobs:
           
           # Create and push manifest
           docker buildx imagetools create \
-            --tag docker.io/emqxecp/neuronex:${{ github.ref_name }}${{ matrix.suffix }} \
+            --tag docker.io/emqx/neuronex:${{ github.ref_name }}${{ matrix.suffix }} \
             docker.io/emqxecp/neuronex@${amd64_digest} \
             docker.io/emqxecp/neuronex@${arm64_digest}
       - name: Inspect image
