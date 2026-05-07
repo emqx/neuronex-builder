@@ -131,7 +131,7 @@ jobs:
     - uses: docker/metadata-action@v4
       id: meta
       with:
-        images: docker.io/emqx/neuronex
+        images: docker.io/emqxecp/neuronex
         flavor: |
           latest=${{ steps.latest.outputs.latest }}
           suffix=${{ matrix.suffix }}
@@ -156,7 +156,7 @@ jobs:
         file: deploy/docker/Dockerfile${{ matrix.suffix }}
         context: .
         platforms: ${{ matrix.platform }}
-        outputs: type=image,name=docker.io/emqx/neuronex,push-by-digest=true,name-canonical=true
+    outputs: type=image,name=docker.io/emqxecp/neuronex,push-by-digest=true,name-canonical=true
         # Disable attestation to avoid conflicts with digest-based pushing
         provenance: false
     - name: Export digest
@@ -475,7 +475,7 @@ jobs:
           
           # Create and push manifest
           docker buildx imagetools create \
-            --tag docker.io/emqx/neuronex:${{ github.ref_name }}${{ matrix.suffix }} \
+            --tag docker.io/emqxecp/neuronex:${{ github.ref_name }}${{ matrix.suffix }} \
             docker.io/emqxecp/neuronex@${amd64_digest} \
             docker.io/emqxecp/neuronex@${arm64_digest}
       - name: Inspect image
