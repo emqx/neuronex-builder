@@ -326,6 +326,7 @@ jobs:
           -v $(pwd):/neuronex \
           --workdir /neuronex \
           -e GIT_TOKEN=${{ steps.app-token.outputs.token }} \
+          -e DEPLOY_METHOD=ai \
           -e DEBUG=1 \
           ghcr.io/emqx/neuronex-go/neuronex-builder:${{ matrix.golang }}-${{ matrix.os }} \
           bash -euc "git config --global --add safe.directory /neuronex && git config --global url."https://oauth2:${GIT_TOKEN}@github.com/emqx".insteadOf "https://github.com/emqx" && .github/scripts/install_dep_rpm.sh  && make pkg"
@@ -338,6 +339,7 @@ jobs:
           -v $(pwd):/neuronex \
           --workdir /neuronex \
           -e GIT_TOKEN=${{ steps.app-token.outputs.token }} \
+          -e DEPLOY_METHOD=ai \
           -e DEBUG=1 \
           ghcr.io/emqx/neuronex-go/neuronex-builder:${{ matrix.golang }}-${{ matrix.os }} \
           bash -euc "git config --global --add safe.directory /neuronex && git config --global url."https://oauth2:${GIT_TOKEN}@github.com/emqx".insteadOf "https://github.com/emqx" && make tar_pkg &&  make pkg && .github/scripts/install_test.sh"
