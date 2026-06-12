@@ -1,5 +1,5 @@
-ekuiper: v2.4.0-beta.4
-neuron: 2.14.1
-dashboard: 3.8.1-beta.1
+ekuiper: v2.4.0-beta.10
+neuron: 2.15.0-beta3
+dashboard: 3.9.0-beta.5
 ai: 3.8.0-alpha.1
-datalayers: 2.3.18
+datalayers: 2.3.17
