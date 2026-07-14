@@ -1,1 +1,2 @@
-neuronex:3.7.1
+neuronex:customer/3.7-EOMS
+neuron_repo:emqx/neuron-modules
