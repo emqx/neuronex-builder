@@ -43,7 +43,6 @@ jobs:
           suffix:
             - ""
             - "-slim"
-            - "-ai"
           # Add platform information
           include:
             - arch: ubuntu-22.04
@@ -62,12 +61,9 @@ jobs:
         private-key: ${{ secrets.AUTH_APP_PRIVATE_KEY }}
         owner: ${{ github.repository_owner }}
         repositories: |
-          ai-chart
-          emqx-ai
           ekuiper
           neuron
           neuronex-dashboard
-          neuronex-ai
           gotools
           neuron-modules
           neuronex-go
@@ -233,12 +229,9 @@ jobs:
           private-key: ${{ secrets.AUTH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: |
-            ai-chart
-            emqx-ai
             ekuiper
             neuron
             neuronex-dashboard
-            neuronex-ai
             gotools
             neuron-modules
             neuronex-go
@@ -264,7 +257,6 @@ jobs:
           -v $(pwd):/neuronex \
           --workdir /neuronex \
           -e GIT_TOKEN=${{ steps.app-token.outputs.token }} \
-          -e DEPLOY_METHOD=ai \
           -e DEBUG=1 \
           ghcr.io/emqx/neuronex-go/neuronex-builder:${{ matrix.golang }}-${{ matrix.os }} \
           bash -euc "git config --global --add safe.directory /neuronex && git config --global url."https://oauth2:${GIT_TOKEN}@github.com/emqx".insteadOf "https://github.com/emqx" && .github/scripts/install_dep_rpm.sh  && make pkg"
@@ -277,7 +269,6 @@ jobs:
           -v $(pwd):/neuronex \
           --workdir /neuronex \
           -e GIT_TOKEN=${{ steps.app-token.outputs.token }} \
-          -e DEPLOY_METHOD=ai \
           -e DEBUG=1 \
           ghcr.io/emqx/neuronex-go/neuronex-builder:${{ matrix.golang }}-${{ matrix.os }} \
           bash -euc "git config --global --add safe.directory /neuronex && git config --global url."https://oauth2:${GIT_TOKEN}@github.com/emqx".insteadOf "https://github.com/emqx" && make tar_pkg &&  make pkg && .github/scripts/install_test.sh"
@@ -316,12 +307,9 @@ jobs:
           private-key: ${{ secrets.AUTH_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: |
-            ai-chart
-            emqx-ai
             ekuiper
             neuron
             neuronex-dashboard
-            neuronex-ai
             gotools
             neuron-modules
             neuronex-go
@@ -423,7 +411,6 @@ jobs:
         suffix:
           - ""
           - "-slim"
-          - "-ai"
     steps:
       - name: Download digests
         uses: actions/download-artifact@v4
