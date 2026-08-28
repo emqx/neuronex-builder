@@ -45,7 +45,7 @@ jobs:
             - ubuntu-22.04-arm
           suffix:
             - ""
-            - "-slim"
+            - "-extend"
           # Add platform information
           include:
             - arch: ubuntu-22.04
@@ -440,7 +440,7 @@ jobs:
       matrix:
         suffix:
           - ""
-          - "-slim"
+          - "-extend"
     steps:
       - name: Download digests
         uses: actions/download-artifact@v4
