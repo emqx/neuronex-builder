@@ -102,6 +102,12 @@ jobs:
     - name: Replace version file
       run: |
         cp /tmp/version ./scripts/version
+    - name: Patch get_lib.sh to allow missing datalayers/ai
+      run: |
+        set -eux
+        sed -i 's@datalayers_version=$(cat ./version | grep datalayers | awk '"'"'{print $2}'"'"')@datalayers_version=$(cat ./version | grep datalayers | awk '"'"'{print $2}'"'"' || true)@' ./scripts/get_lib.sh
+        sed -i 's@neuronex_ai_version=$(cat ./version | grep ai | awk '"'"'{print $2}'"'"')@neuronex_ai_version=$(cat ./version | grep ai | awk '"'"'{print $2}'"'"' || true)@' ./scripts/get_lib.sh
+        cat ./scripts/get_lib.sh
     - name: Patch neuron URL in get_lib.sh if custom neuron_repo
       if: ${{ steps.extract-variables.outputs.neuron_repo != 'emqx/neuron' }}
       run: |
