@@ -258,6 +258,7 @@ jobs:
           --workdir /neuronex \
           -e GIT_TOKEN=${{ steps.app-token.outputs.token }} \
           -e DEBUG=1 \
+          -e BUILD_PROFILE=standard \
           ghcr.io/emqx/neuronex-go/neuronex-builder:${{ matrix.golang }}-${{ matrix.os }} \
           bash -euc "git config --global --add safe.directory /neuronex && git config --global url."https://oauth2:${GIT_TOKEN}@github.com/emqx".insteadOf "https://github.com/emqx" && .github/scripts/install_dep_rpm.sh  && make pkg"
       - name: build
@@ -270,6 +271,7 @@ jobs:
           --workdir /neuronex \
           -e GIT_TOKEN=${{ steps.app-token.outputs.token }} \
           -e DEBUG=1 \
+          -e BUILD_PROFILE=standard \
           ghcr.io/emqx/neuronex-go/neuronex-builder:${{ matrix.golang }}-${{ matrix.os }} \
           bash -euc "git config --global --add safe.directory /neuronex && git config --global url."https://oauth2:${GIT_TOKEN}@github.com/emqx".insteadOf "https://github.com/emqx" && make tar_pkg &&  make pkg && .github/scripts/install_test.sh"
       - name: generate-sha256

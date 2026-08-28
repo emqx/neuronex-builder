@@ -296,6 +296,12 @@ jobs:
       - name: Replace version file
         run: |
           cp /tmp/version ./scripts/version
+      - name: Patch get_lib.sh to allow missing datalayers/ai
+        run: |
+          set -eux
+          sed -i 's@datalayers_version=$(cat ./version | grep datalayers | awk '"'"'{print $2}'"'"')@datalayers_version=$(cat ./version | grep datalayers | awk '"'"'{print $2}'"'"' || true)@' ./scripts/get_lib.sh
+          sed -i 's@neuronex_ai_version=$(cat ./version | grep ai | awk '"'"'{print $2}'"'"')@neuronex_ai_version=$(cat ./version | grep ai | awk '"'"'{print $2}'"'"' || true)@' ./scripts/get_lib.sh
+          cat ./scripts/get_lib.sh
       - name: Patch neuron URL in get_lib.sh if custom neuron_repo
         if: ${{ steps.extract-variables.outputs.neuron_repo != 'emqx/neuron' }}
         run: |
@@ -320,6 +326,7 @@ jobs:
           --workdir /neuronex \
           -e GIT_TOKEN=${{ steps.app-token.outputs.token }} \
           -e DEBUG=1 \
+          -e BUILD_PROFILE=standard \
           ghcr.io/emqx/neuronex-go/neuronex-builder:${{ matrix.golang }}-${{ matrix.os }} \
           bash -euc "git config --global --add safe.directory /neuronex && git config --global url."https://oauth2:${GIT_TOKEN}@github.com/emqx".insteadOf "https://github.com/emqx" && .github/scripts/install_dep_rpm.sh  && make pkg"
       - name: build
@@ -332,6 +339,7 @@ jobs:
           --workdir /neuronex \
           -e GIT_TOKEN=${{ steps.app-token.outputs.token }} \
           -e DEBUG=1 \
+          -e BUILD_PROFILE=standard \
           ghcr.io/emqx/neuronex-go/neuronex-builder:${{ matrix.golang }}-${{ matrix.os }} \
           bash -euc "git config --global --add safe.directory /neuronex && git config --global url."https://oauth2:${GIT_TOKEN}@github.com/emqx".insteadOf "https://github.com/emqx" && make tar_pkg &&  make pkg && .github/scripts/install_test.sh"
       - name: generate-sha256
