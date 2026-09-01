@@ -43,6 +43,8 @@ jobs:
           suffix:
             - ""
             - "-extend"
+            - "-alpine"
+            - "-extend-alpine"
           # Add platform information
           include:
             - arch: ubuntu-22.04
@@ -74,6 +76,10 @@ jobs:
         token: ${{ steps.app-token.outputs.token }}
         path: .
         ref: ${{ github.ref }}
+    - name: Read versions
+      id: versions
+      run: |
+        echo "ekuiper_v=$(awk '/^ekuiper/{print $2}' scripts/version)" >> "$GITHUB_OUTPUT"
     - name: Check latest image
       id: latest
       run: |
@@ -117,6 +123,7 @@ jobs:
         # tags: ${{ steps.meta.outputs.tags }}
         build-args: |
           GIT_TOKEN=${{ steps.app-token.outputs.token }}
+          EKUIPER_V=${{ steps.versions.outputs.ekuiper_v }}
         labels: ${{ steps.meta.outputs.labels }}
         file: deploy/docker/Dockerfile${{ matrix.suffix }}
         context: .
@@ -413,6 +420,8 @@ jobs:
         suffix:
           - ""
           - "-extend"
+          - "-alpine"
+          - "-extend-alpine"
     steps:
       - name: Download digests
         uses: actions/download-artifact@v4
