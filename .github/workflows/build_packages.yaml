@@ -44,7 +44,6 @@ jobs:
             - ""
             - "-extend"
             - "-alpine"
-            - "-extend-alpine"
           # Add platform information
           include:
             - arch: ubuntu-22.04
@@ -421,7 +420,6 @@ jobs:
           - ""
           - "-extend"
           - "-alpine"
-          - "-extend-alpine"
     steps:
       - name: Download digests
         uses: actions/download-artifact@v4
