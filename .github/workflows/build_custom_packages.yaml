@@ -160,6 +160,7 @@ jobs:
         build-args: |
           GIT_TOKEN=${{ steps.app-token.outputs.token }}
           EKUIPER_V=${{ steps.versions.outputs.ekuiper_v }}
+          VERSION=${{ github.ref_name }}
         labels: ${{ steps.meta.outputs.labels }}
         file: deploy/docker/Dockerfile${{ matrix.suffix }}
         context: .
