@@ -43,7 +43,7 @@ jobs:
           suffix:
             - ""
             - "-extend"
-            - "-alpine"
+            # - "-alpine"
           # Add platform information
           include:
             - arch: ubuntu-22.04
@@ -420,7 +420,7 @@ jobs:
         suffix:
           - ""
           - "-extend"
-          - "-alpine"
+          # - "-alpine"
     steps:
       - name: Download digests
         uses: actions/download-artifact@v4
