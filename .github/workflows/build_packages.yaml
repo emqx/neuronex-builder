@@ -420,7 +420,7 @@ jobs:
         suffix:
           - ""
           - "-extend"
-          # - "-alpine"
+           - "-alpine"
     steps:
       - name: Download digests
         uses: actions/download-artifact@v4
