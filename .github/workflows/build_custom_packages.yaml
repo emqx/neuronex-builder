@@ -138,7 +138,8 @@ jobs:
     - uses: docker/metadata-action@v4
       id: meta
       with:
-        images: docker.io/emqx/neuronex
+        # Custom and internal images stay on this repo. Official releases use docker.io.
+        images: ghcr.io/${{ github.repository }}/neuronex
         flavor: |
           latest=${{ steps.latest.outputs.latest }}
           suffix=${{ matrix.suffix }}
@@ -147,8 +148,9 @@ jobs:
     - uses: docker/login-action@v2
       if: github.ref_type == 'tag'
       with:
-        username: ${{ secrets.DOCKER_HUB_USER }}
-        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
     - name: Build and push by digest
@@ -165,7 +167,7 @@ jobs:
         file: deploy/docker/Dockerfile${{ matrix.suffix }}
         context: .
         platforms: ${{ matrix.platform }}
-        outputs: type=image,name=docker.io/emqx/neuronex,push-by-digest=true,name-canonical=true
+        outputs: type=image,name=ghcr.io/${{ github.repository }}/neuronex,push-by-digest=true,name-canonical=true
         # Disable attestation to avoid conflicts with digest-based pushing
         provenance: false
     - name: Export digest
@@ -454,6 +456,9 @@ jobs:
   create-manifest:
     runs-on: ubuntu-latest
     if: github.ref_type == 'tag' && always()
+    permissions:
+      actions: read
+      packages: write
     needs:
       - build-docker-images
       - validate-tag-format
@@ -472,26 +477,47 @@ jobs:
           merge-multiple: true
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      - name: Login to DockerHub
+      - name: Login to GHCR
         uses: docker/login-action@v2
         with:
-          username: ${{ secrets.DOCKER_HUB_USER }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
       - name: Create and push manifest
         run: |
           ls -la /tmp/digests/
           # Read the digest files
           amd64_digest=$(cat /tmp/digests/amd64${{ matrix.suffix }}.txt)
           arm64_digest=$(cat /tmp/digests/arm64${{ matrix.suffix }}.txt)
-          
+          image=ghcr.io/${{ github.repository }}/neuronex
+
           # Create and push manifest
           docker buildx imagetools create \
-            --tag docker.io/emqx/neuronex:${{ github.ref_name }}${{ matrix.suffix }} \
-            docker.io/emqx/neuronex@${amd64_digest} \
-            docker.io/emqx/neuronex@${arm64_digest}
+            --tag ${image}:${{ github.ref_name }}${{ matrix.suffix }} \
+            ${image}@${amd64_digest} \
+            ${image}@${arm64_digest}
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect docker.io/emqx/neuronex:${{ github.ref_name }}${{ matrix.suffix }}
+          docker buildx imagetools inspect ghcr.io/${{ github.repository }}/neuronex:${{ github.ref_name }}${{ matrix.suffix }}
+      - name: Make the package public
+        if: matrix.suffix == ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # New GHCR packages are private. Customers pull this image without logging in,
+          # so the package has to be public. GITHUB_TOKEN may not be allowed to change it.
+          for _ in 1 2 3 4 5; do
+            if gh api --method PUT \
+              -H "Accept: application/vnd.github+json" \
+              "/orgs/${{ github.repository_owner }}/packages/container/neuronex-builder%2Fneuronex/visibility" \
+              -f visibility=public; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Could not set the package public. Set neuronex-builder/neuronex to Public in the repo Packages settings."
+          exit 1
 
   # trigger_regression_testing:
   #   runs-on: ubuntu-latest
